@@ -8,6 +8,10 @@ wheels/
 
 # Virtual environments
 .venv
+.venv-workers/
+
+# Node
+node_modules/
 
 # 隐私/运行时
 access.jsonl
@@ -17,3 +21,4 @@ cloudflare/node_modules/
 cloudflare/.wrangler/
 cloudflare/pylock.toml
 cloudflare/uv.lock
+.wrangler/
