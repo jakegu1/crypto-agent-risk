@@ -1,0 +1,58 @@
+{
+  "$schema": "https://registry.modelcontextprotocol.io/schema/2025-06-18",
+  "name": "io.github.jakegu1/crypto-agent-risk",
+  "description": "Crypto token risk intelligence MCP: assess a token's risk (liquidity depth, honeypot check, pool freshness) and return an actionable low/medium/high verdict with a recommendation for AI agents.",
+  "version": "0.1.0",
+  "repository": {
+    "url": "https://github.com/jakegu1/crypto-agent-risk",
+    "source": "github"
+  },
+  "license": "MIT",
+  "packages": [
+    {
+      "registryType": "remote",
+      "identifier": "io.github.jakegu1/crypto-agent-risk",
+      "version": "0.1.0",
+      "transport": {
+        "type": "streamable-http",
+        "url": "https://124.222.120.49/cryptorisk/mcp"
+      }
+    }
+  ],
+  "tools": [
+    {
+      "name": "assess_token_risk",
+      "description": "Aggregate multi-chain liquidity/contract safety/freshness into an actionable risk verdict (low/medium/high) plus a recommendation for the agent. Address should be an ERC-20 or Solana contract address.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "address": {"type": "string", "description": "ERC-20 or Solana contract address"},
+          "chain_hint": {"type": "string", "description": "Optional chain hint"}
+        },
+        "required": ["address"]
+      }
+    },
+    {
+      "name": "get_token_liquidity",
+      "description": "Return a token's main pair liquidity snapshot: price, 24h volume, cross-chain count.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "address": {"type": "string", "description": "Token contract address"}
+        },
+        "required": ["address"]
+      }
+    },
+    {
+      "name": "find_new_hot_pools",
+      "description": "Scan a chain (default solana) for newest or hottest new pools; returns price/liquidity/volume overview for new-token discovery and risk assessment.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "chain": {"type": "string", "default": "solana"},
+          "limit": {"type": "integer", "default": 10}
+        }
+      }
+    }
+  ]
+}
