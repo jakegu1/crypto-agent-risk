@@ -66,13 +66,15 @@ mcp_path = "/mcp"
 from starlette.responses import JSONResponse
 import json
 
+from . import rate_limit
+
 
 async def _json(data) -> JSONResponse:
     return JSONResponse(data)
 
 
 async def health(req) -> JSONResponse:
-    """健康检查。"""
+    """健康检查（放行，不限流）。"""
     return JSONResponse({"status": "ok", "service": "crypto-agent-risk", "mcp_tools": 3})
 
 
@@ -99,10 +101,18 @@ async def new_pools_http(req) -> JSONResponse:
     return JSONResponse(r)
 
 
+def _wrapped(handler):
+    """用限流+日志包装一个端点 handler。"""
+    async def wrapper(req):
+        return await rate_limit.call_tool_handler(handler, req)
+    wrapper.__name__ = getattr(handler, "__name__", "handler")
+    return wrapper
+
+
 app.add_route("/health", health, methods=["GET"])
-app.add_route("/assess/{address}", assess_http, methods=["GET"])
-app.add_route("/liquidity/{address}", liquidity_http, methods=["GET"])
-app.add_route("/new-pools", new_pools_http, methods=["GET"])
+app.add_route("/assess/{address}", _wrapped(assess_http), methods=["GET"])
+app.add_route("/liquidity/{address}", _wrapped(liquidity_http), methods=["GET"])
+app.add_route("/new-pools", _wrapped(new_pools_http), methods=["GET"])
 
 
 # 供 `uvicorn crypto_agent_risk.server:app` 直接跑 HTTP (app 已是完整 ASGI)

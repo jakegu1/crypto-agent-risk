@@ -83,7 +83,7 @@ async def assess_token_risk(address: str, chain_hint: str | None = None) -> dict
         else:
             signals.append(_sig("warn", "未找到流动性", "DexScreener 未检索到该地址的交易对", "no_liquidity"))
 
-    # --- 2. Honeypot 检查 (主要针对 EVM 合约) ---
+    # --- 2. 合约安全 (EVM 走 honeypot, Solana/其他走 rugcheck) ---
     if _looks_evm(address):
         hp = await ds.honeypot_check(address)
         evidence["honeypot"] = hp
@@ -99,6 +99,20 @@ async def assess_token_risk(address: str, chain_hint: str | None = None) -> dict
                 signals.append(_sig("critical", "高卖方税", f"卖出税 {sell_tax:.0f}%，可能无法正常卖出", "sell_tax"))
             else:
                 signals.append(_sig("ok", "非 Honeypot", "未检测到 honeypot 特征", "honeypot"))
+    elif _looks_solana(address):
+        # Solana 无 honeypot 概念，但有 rugcheck 风险评分（流动性池/持有集中度等）
+        rc = await ds.rugcheck_report(address)
+        evidence["rugcheck"] = rc
+        rc_score = _num(rc.get("score"))
+        rc_risks = rc.get("risks") or []
+        if rc_score and rc_score >= 10000:
+            signals.append(_sig("critical", "Rugcheck 高风险", f"rug 评分 {rc_score:,.0f}，存在 {len(rc_risks)} 项风险", "rugcheck"))
+        elif rc_score and rc_score >= 5000:
+            signals.append(_sig("warn", "Rugcheck 中风险", f"rug 评分 {rc_score:,.0f}", "rugcheck"))
+        elif rc_score:
+            signals.append(_sig("ok", "Rugcheck 通过", f"rug 评分 {rc_score:,.0f}，低于阈值", "rugcheck"))
+        else:
+            signals.append(_sig("info", "Rugcheck 无数据", "RugCheck 未返回该代币的风险报告", "rugcheck"))
 
     # --- 3. 池子新鲜度 / 新币风险 ---
     # 主交易对创建时间越近，rug 风险越高
@@ -191,6 +205,16 @@ def _looks_evm(address: str) -> bool:
     return len(address) == 42 and address.startswith("0x")
 
 
+def _looks_solana(address: str) -> bool:
+    """粗略判断是否为 Solana base58 地址（32-44 字符，常见 32/44）。"""
+    if not address or not address.isalnum():
+        return False
+    # base58 排除 0OIl; 长度 32-44
+    if not 32 <= len(address) <= 44:
+        return False
+    return all(c not in "0OIl" for c in address)
+
+
 def _pool_summary(p: dict, kind: str) -> dict:
     attrs = p.get("attributes", {})
     return {
@@ -206,7 +230,7 @@ def _pool_summary(p: dict, kind: str) -> dict:
 
 
 def _finalize(address: str, signals: list[dict], evidence: dict) -> dict:
-    """汇总评分：severity 权重 → risk_score (0-100)。"""
+    """汇总评分：severity 权重 → risk_score (0-100)，并识别危险组合。"""
     score = min(100, sum(_severity(s["severity"]) for s in signals))
     # 有真实正向信号时不要判 unknown
     has_positive = any(s["severity"] in ("ok", "info") for s in signals)
@@ -221,9 +245,41 @@ def _finalize(address: str, signals: list[dict], evidence: dict) -> dict:
     else:
         level = "unknown"
 
+    # --- 组合规则：危险特征叠加 → 直接高判（不靠单个信号） ---
+    # 极低流动性 + 单链 + 新池 = 高 rug 概率组合
+    risk_factors = {s["category"] for s in signals if s["severity"] in ("critical", "fatal")}
+    warn_factors = {s["category"] for s in signals if s["severity"] == "warn"}
+    combo_flags = []
+    if "liquidity" in risk_factors and "freshness" in risk_factors:
+        combo_flags.append("很低流动性 + 极新池子")
+    if "liquidity" in risk_factors and "cross_chain" in warn_factors:
+        combo_flags.append("很低流动性 + 单链")
+    if "freshness" in risk_factors and "cross_chain" in warn_factors:
+        combo_flags.append("极新池子 + 单链")
+    if combo_flags:
+        level = "high"
+        evidence["risk_combo"] = combo_flags
+        signals.append(_sig("critical", "危险组合", "叠加: " + "；".join(combo_flags), "combo"))
+
+    # 无致命信号时不要轻易标高
     critical = [s for s in signals if s["severity"] in ("critical", "fatal")]
     if level == "high" and not critical:
-        level = "medium"  # 无致命信号时不要轻易标高
+        level = "medium"
+
+    # --- confidence：有多少证据支撑这个结论 ---
+    # 依据：噪声/无数据信号(ok/info 也可能来自"无数据")少，且存在正向实据
+    info_ok = sum(1 for s in signals if s["severity"] in ("ok", "info"))
+    definite = sum(1 for s in signals if s["severity"] in ("warn", "critical", "fatal"))
+    total = len(signals)
+    if total == 0:
+        confidence = "low"
+    elif definite and total >= 3 and info_ok >= 1:
+        confidence = "high"
+    elif total >= 2:
+        confidence = "medium"
+    else:
+        confidence = "low"
+    evidence["confidence"] = confidence
 
     rec = _recommendation(level, signals)
     return {
@@ -232,6 +288,7 @@ def _finalize(address: str, signals: list[dict], evidence: dict) -> dict:
         "risk_score": score,
         "signals": signals,
         "recommendation": rec,
+        "confidence": confidence,
         "evidence": evidence,
     }
 

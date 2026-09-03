@@ -153,6 +153,18 @@ async def geckoterminal_pool(pool_id: str) -> dict:
 # ---------------------------------------------------------------------------
 # honeypot.is — ETH 合约一键反诈骗（Honeypot 检测）
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# RugCheck (Solana) — 代币风险评分 / rug 检测
+# ---------------------------------------------------------------------------
+async def rugcheck_report(mint: str) -> dict:
+    """Solana 代币的 rug 检测报告（含分数 + 风险条目）。mint 为代币地址。"""
+    data = await _cached(f"rc:{mint}", lambda: _get_json(
+        f"https://api.rugcheck.xyz/v1/tokens/{mint}/report"), ttl=300)
+    if not isinstance(data, dict):
+        return {}
+    return data
+
+
 async def honeypot_check(address: str) -> dict:
     """检测 ERC-20 是否 honeypot。address 为合约地址。"""
     data = await _cached(f"hp:{address}", lambda: _get_json(
