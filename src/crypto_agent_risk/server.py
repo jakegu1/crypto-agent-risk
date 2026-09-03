@@ -13,7 +13,6 @@ FastMCP 工具暴露层 — 把风险引擎包装成 AI 代理可直接调用的
 from __future__ import annotations
 import logging
 
-from fastapi import FastAPI
 from fastmcp import FastMCP
 
 from . import data_sources as ds
@@ -56,35 +55,57 @@ async def find_new_hot_pools(chain: str = "solana", limit: int = 10) -> list[dic
     return await risk_engine.find_new_hot_pools(chain, limit)
 
 
-# --- FastAPI app (HTTP 端点 + 预留 x402) ---
-app = FastAPI(title="Crypto Agent Risk API", version="0.1.0")
+# --- ASGI app: 远程 MCP transport (streamable-http) 作为主 app ---
+# 对外: /cryptorisk/mcp  (经 nginx 剥离前缀后到本服务的 /mcp)
+# MCP 端点 /mcp 由 FastMCP 直接处理，不嵌套 mount，避免路径双重拼接/尾斜杠404
+app = mcp.http_app(transport="streamable-http")
+mcp_path = "/mcp"
 
 
-@app.get("/health")
-async def health() -> dict:
+# 辅助 HTTP 端点 (为 x402 托管 + 监控预留)。直接作为独立路由挂在主 app 上。
+from starlette.responses import JSONResponse
+import json
+
+
+async def _json(data) -> JSONResponse:
+    return JSONResponse(data)
+
+
+async def health(req) -> JSONResponse:
     """健康检查。"""
-    return {"status": "ok", "service": "crypto-agent-risk", "mcp_tools": 3}
+    return JSONResponse({"status": "ok", "service": "crypto-agent-risk", "mcp_tools": 3})
 
 
-@app.get("/assess/{address}")
-async def assess_http(address: str, chain_hint: str | None = None) -> dict:
-    """HTTP 直调版评估（为 x402 托管预留的入口）。"""
-    return await risk_engine.assess_token_risk(address, chain_hint)
+async def assess_http(req) -> JSONResponse:
+    """HTTP 直调版评估。"""
+    address = req.path_params.get("address", "")
+    chain_hint = req.query_params.get("chain_hint")
+    r = await risk_engine.assess_token_risk(address, chain_hint)
+    return JSONResponse(r)
 
 
-@app.get("/liquidity/{address}")
-async def liquidity_http(address: str) -> dict:
+async def liquidity_http(req) -> JSONResponse:
     """HTTP 直调版流动性。"""
-    return await risk_engine.get_token_liquidity(address)
+    address = req.path_params.get("address", "")
+    r = await risk_engine.get_token_liquidity(address)
+    return JSONResponse(r)
 
 
-@app.get("/new-pools")
-async def new_pools_http(chain: str = "solana", limit: int = 10) -> list[dict]:
+async def new_pools_http(req) -> JSONResponse:
     """HTTP 直调版新池。"""
-    return await risk_engine.find_new_hot_pools(chain, limit)
+    chain = req.query_params.get("chain", "solana")
+    limit = int(req.query_params.get("limit", "10"))
+    r = await risk_engine.find_new_hot_pools(chain, limit)
+    return JSONResponse(r)
 
 
-# 供 `uvicorn crypto_agent_risk.server:app` 直接跑 HTTP
+app.add_route("/health", health, methods=["GET"])
+app.add_route("/assess/{address}", assess_http, methods=["GET"])
+app.add_route("/liquidity/{address}", liquidity_http, methods=["GET"])
+app.add_route("/new-pools", new_pools_http, methods=["GET"])
+
+
+# 供 `uvicorn crypto_agent_risk.server:app` 直接跑 HTTP (app 已是完整 ASGI)
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8123)

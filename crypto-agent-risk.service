@@ -1,0 +1,20 @@
+[Unit]
+Description=Crypto Agent Risk MCP (token risk intelligence)
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/projects/crypto-agent-risk
+# 服务器外网走本地 SOCKS 代理，必须显式传给服务，否则上游 API(如DexScreener)不可达
+Environment=HTTP_PROXY=http://127.0.0.1:7890
+Environment=HTTPS_PROXY=http://127.0.0.1:7890
+Environment=ALL_PROXY=socks5://127.0.0.1:7891
+Environment=NO_PROXY=localhost,127.0.0.1,::1
+ExecStart=/home/ubuntu/projects/crypto-agent-risk/.venv/bin/uvicorn crypto_agent_risk.server:app --host 127.0.0.1 --port 8123
+Restart=always
+RestartSec=5
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target
