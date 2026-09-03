@@ -63,10 +63,23 @@ mcp_path = "/mcp"
 
 
 # 辅助 HTTP 端点 (为 x402 托管 + 监控预留)。直接作为独立路由挂在主 app 上。
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, HTMLResponse
 import json
+import os
 
 from . import rate_limit
+
+_LANDING_PATH = os.path.join(os.path.dirname(__file__), "landing.html")
+
+
+async def landing(req) -> HTMLResponse:
+    """落地页：给开发者看 + 给 AI 引擎读（GEO）。"""
+    try:
+        with open(_LANDING_PATH, "r", encoding="utf-8") as f:
+            html = f.read()
+        return HTMLResponse(html)
+    except FileNotFoundError:
+        return HTMLResponse("<h1>Crypto Agent Risk</h1><p>Landing page not found.</p>", status_code=500)
 
 
 async def _json(data) -> JSONResponse:
@@ -110,6 +123,7 @@ def _wrapped(handler):
 
 
 app.add_route("/health", health, methods=["GET"])
+app.add_route("/", landing, methods=["GET"])
 app.add_route("/assess/{address}", _wrapped(assess_http), methods=["GET"])
 app.add_route("/liquidity/{address}", _wrapped(liquidity_http), methods=["GET"])
 app.add_route("/new-pools", _wrapped(new_pools_http), methods=["GET"])

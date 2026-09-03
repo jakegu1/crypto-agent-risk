@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crypto Agent Risk — 代币风险情报 API/MCP · 给 AI 代理的买前安全检查</title>
+<meta name="description" content="Crypto Agent Risk 是一个给 AI 代理使用的代币风险评估工具。在持有、买入、调研一个代币前，调用 assess_token_risk 获取可执行的 low/medium/high 风险画像与建议。支持多链(ETH/Solana/Base)、MCP over HTTP、免费公开 API。">
+<meta name="keywords" content="crypto risk assessment, token risk API, rug pull checker, MCP server crypto, AI agent crypto tool, 代币风险评估, 防rug, whale alert">
+<link rel="canonical" href="http://124.222.120.49/cryptorisk/">
+<!-- Open Graph -->
+<meta property="og:title" content="Crypto Agent Risk — 代币风险情报 API/MCP">
+<meta property="og:description" content="给 AI 代理的买前安全检查：聚合多链流动性/Honeypot/RugCheck，返回可执行风险结论与建议。">
+<meta property="og:type" content="website">
+<!-- JSON-LD: 结构化数据供 AI 引擎/GEO 读取 -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Crypto Agent Risk",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "API",
+  "description": "Crypto token risk intelligence API/MCP. Assess a token's risk (multi-chain liquidity, honeypot check, rug check, pool freshness) and get an actionable low/medium/high verdict with a recommendation for AI agents.",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "url": "http://124.222.120.49/cryptorisk/",
+  "featureList": "assess_token_risk, get_token_liquidity, find_new_hot_pools, MCP over HTTP"
+}
+</script>
+<style>
+  :root { --bg:#0d1117; --card:#161b22; --border:#30363d; --txt:#e6edf3; --dim:#8b949e; --accent:#58a6ff; --green:#3fb950; --yellow:#d29922; --red:#f85149; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--txt); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif; line-height:1.6; }
+  .wrap { max-width:1000px; margin:0 auto; padding:40px 24px; }
+  header { padding:24px 0 8px; border-bottom:1px solid var(--border); margin-bottom:32px; }
+  .logo { display:flex; align-items:center; gap:12px; }
+  .badge { background:var(--accent); color:#000; font-weight:700; padding:3px 10px; border-radius:20px; font-size:12px; }
+  h1 { font-size:32px; margin:8px 0 6px; }
+  .sub { color:var(--dim); font-size:18px; margin-bottom:16px; }
+  .pill { display:inline-block; background:#21262d; border:1px solid var(--border); border-radius:20px; padding:4px 12px; font-size:13px; margin-right:8px; color:var(--dim); }
+  .panel { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:24px; margin:20px 0; }
+  h2 { font-size:22px; margin-bottom:14px; }
+  h3 { font-size:16px; margin:16px 0 8px; }
+  .tool { border-left:3px solid var(--accent); padding:12px 16px; margin:12px 0; background:#0d1117; border-radius:0 8px 8px 0; }
+  .tool.high { border-color:var(--green); }
+  code { background:#21262d; padding:2px 6px; border-radius:4px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:13px; color:var(--accent); }
+  pre { background:#161b22; border:1px solid var(--border); border-radius:8px; padding:16px; overflow-x:auto; font-size:13px; color:#c9d1d9; }
+  pre code { background:none; color:inherit; padding:0; }
+  table { width:100%; border-collapse:collapse; margin:12px 0; }
+  th,td { text-align:left; padding:8px 12px; border-bottom:1px solid var(--border); font-size:14px; }
+  th { color:var(--dim); font-weight:600; }
+  .url { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:12px 16px; font-family:ui-monospace,Menlo,monospace; font-size:14px; color:var(--green); word-break:break-all; }
+  .cta { background:var(--accent); color:#000; font-weight:700; padding:12px 28px; border-radius:8px; text-decoration:none; display:inline-block; margin-top:12px; }
+  .note { color:var(--dim); font-size:13px; margin-top:8px; }
+  footer { border-top:1px solid var(--border); margin-top:40px; padding:20px 0; color:var(--dim); font-size:13px; text-align:center; }
+  .risk-low { color:var(--green); font-weight:700; }
+  .risk-med { color:var(--yellow); font-weight:700; }
+  .risk-high { color:var(--red); font-weight:700; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="logo">
+    <span class="badge">MCP</span>
+    <span style="font-weight:700;font-size:18px;">Crypto Agent Risk</span>
+    <span style="color:var(--dim);font-size:14px;">代币风险情报</span>
+  </div>
+  <h1>给 AI 代理的「买前安全检查」</h1>
+  <div class="sub">在 AI 替你决策之前，先确认这币能不能碰。</div>
+  <div>
+    <span class="pill">MCP over HTTP</span>
+    <span class="pill">多链: ETH / Solana / Base</span>
+    <span class="pill">免费公开 API</span>
+    <span class="pill">实时数据</span>
+  </div>
+</header>
+
+<p><strong>Crypto Agent Risk</strong> 是一个给 AI 代理和开发者使用的代币风险评估工具。它聚合多链流动性、Honeypot 检测、Rug 检查、池子新鲜度，输出一个<strong>可执行的判断</strong>（<span class="risk-low">low</span>/<span class="risk-med">medium</span>/<span class="risk-high">high</span>）和给代理的一句话建议——而不是让你去解读一堆数字。</p>
+
+<div class="panel">
+  <h2>🔌 接入（远程 MCP，无需安装）</h2>
+  <p>通过 MCP over HTTP 远程连接，只需一个 URL：</p>
+  <div class="url">https://124.222.120.49/cryptorisk/mcp</div>
+  <p style="margin-top:12px;">Claude Desktop / Claude Code 配置：</p>
+  <pre><code>{
+  "mcpServers": {
+    "crypto-agent-risk": {
+      "type": "http",
+      "url": "https://124.222.120.49/cryptorisk/mcp"
+    }
+  }
+}</code></pre>
+  <p class="note">任意 MCP 客户端（Cursor / opencode / 自定义 agent）同样支持。</p>
+</div>
+
+<div class="panel">
+  <h2>🧰 工具</h2>
+
+  <div class="tool">
+    <h3><code>assess_token_risk(address, chain_hint?)</code></h3>
+    <p>核心：聚合多链流动性/合约安全/新鲜度，返回结构化风险画像 + 给 agent 的建议。</p>
+    <pre><code>{
+  "address": "0x7D1A...",
+  "risk_level": "low",
+  "risk_score": 0,
+  "signals": [
+    {"severity": "ok", "name": "流动性充足"},
+    {"severity": "ok", "name": "多链流通"},
+    {"severity": "ok", "name": "非 Honeypot"}
+  ],
+  "recommendation": "低风险：流动性充足且无 honeypot/高税信号，可正常评估。",
+  "confidence": "medium"
+}</code></pre>
+  </div>
+
+  <div class="tool">
+    <h3><code>get_token_liquidity(address)</code></h3>
+    <p>流动性快照：主交易对流动性、价格、24h 量、跨链数。</p>
+  </div>
+
+  <div class="tool">
+    <h3><code>find_new_hot_pools(chain, limit)</code></h3>
+    <p>扫描某链最新创建/最热的新交易池，用于发现新币 + 评估风险。</p>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>📊 数据来源</h2>
+  <table>
+    <tr><th>数据源</th><th>覆盖</th></tr>
+    <tr><td>DexScreener</td><td>多链 meme/新币/价格/流动性</td></tr>
+    <tr><td>GeckoTerminal</td><td>池子/流动性/链上行情</td></tr>
+    <tr><td>honeypot.is</td><td>Ethereum 合约反诈骗检测</td></tr>
+    <tr><td>RugCheck</td><td>Solana rug 风险评分</td></tr>
+    <tr><td>CoinGecko</td><td>全量币价/市值</td></tr>
+  </table>
+</div>
+
+<div class="panel">
+  <h2>🔌 HTTP 端点（不用 MCP 也可直调）</h2>
+  <pre><code>GET /cryptorisk/health
+GET /cryptorisk/assess/{address}?chain_hint=
+GET /cryptorisk/liquidity/{address}
+GET /cryptorisk/new-pools?chain=solana&amp;limit=10</code></pre>
+</div>
+
+<div class="panel" style="border-color:var(--yellow);">
+  <h2>🎯 典型使用场景</h2>
+  <p>“帮我评估代币 0x7D1A... 的风险，如果 medium 以上我再考虑建仓。”</p>
+  <p>“扫一下 Solana 最新 5 个新池，列出可能有 rug 风险的。”</p>
+  <p>“查一下 0xC02... 的流动性深度，判断滑点风险。”</p>
+</div>
+
+<div class="panel" style="border-color:var(--red);">
+  <h2>⚠️ 诚实边界</h2>
+  <p>本工具是<strong>情报辅助</strong>，<strong>不构成投资建议</strong>。数据来自公开链上/交易所数据。Honeypot 检测仅覆盖 EVM；流动性数据来自 DexScreener/GeckoTerminal，<strong>非真实资金规模</strong>。请结合自身判断与尽调。</p>
+</div>
+
+<div>
+  <a class="cta" href="http://124.222.120.49/cryptorisk/mcp">立即接入 MCP</a>
+  <a class="cta" style="background:#21262d;color:#e6edf3;border:1px solid var(--border);" href="https://github.com/jakegu1/crypto-agent-risk">GitHub 源码</a>
+</div>
+
+<footer>
+  Crypto Agent Risk · 开源 · MIT License · 情报辅助，不构成投资建议<br>
+  <a href="https://github.com/jakegu1/crypto-agent-risk" style="color:var(--accent);">github.com/jakegu1/crypto-agent-risk</a>
+</footer>
+
+</div>
+</body>
+</html>
