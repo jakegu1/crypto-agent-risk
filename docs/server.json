@@ -1,28 +1,29 @@
 {
   "$schema": "https://registry.modelcontextprotocol.io/schema/2025-06-18",
-  "name": "io.github.jakegu1/crypto-agent-risk",
-  "description": "Crypto token risk intelligence MCP: assess a token's risk (liquidity depth, honeypot check, pool freshness) and return an actionable low/medium/high verdict with a recommendation for AI agents.",
+  "name": "io.github.jakegu1/vetagent",
+  "description": "VetAgent: token risk intelligence MCP for AI agents. Assess a token's risk (multi-chain liquidity depth, honeypot check, rug check, pool freshness) and return an actionable low/medium/high verdict with a recommendation. Remote MCP endpoint, free public API, HTTPS with global CDN.",
   "version": "0.1.0",
   "repository": {
-    "url": "https://github.com/jakegu1/crypto-agent-risk",
+    "url": "https://github.com/jakegu1/vetagent",
     "source": "github"
   },
   "license": "MIT",
+  "homepage": "https://vetagent.dev/",
   "packages": [
     {
       "registryType": "remote",
-      "identifier": "io.github.jakegu1/crypto-agent-risk",
+      "identifier": "io.github.jakegu1/vetagent",
       "version": "0.1.0",
       "transport": {
         "type": "streamable-http",
-        "url": "https://124.222.120.49/cryptorisk/mcp"
+        "url": "https://vetagent.dev/mcp"
       }
     }
   ],
   "tools": [
     {
       "name": "assess_token_risk",
-      "description": "Aggregate multi-chain liquidity/contract safety/freshness into an actionable risk verdict (low/medium/high) plus a recommendation for the agent. Address should be an ERC-20 or Solana contract address.",
+      "description": "Aggregate multi-chain liquidity / contract safety (honeypot or rug check) / pool freshness into an actionable risk verdict (low/medium/high) plus a recommendation for the agent. Address should be an ERC-20 or Solana contract address.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -34,7 +35,7 @@
     },
     {
       "name": "get_token_liquidity",
-      "description": "Return a token's main pair liquidity snapshot: price, 24h volume, cross-chain count.",
+      "description": "Return a token's best-pair liquidity snapshot: price, 24h volume, cross-chain count.",
       "inputSchema": {
         "type": "object",
         "properties": {

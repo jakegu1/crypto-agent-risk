@@ -9,7 +9,7 @@
 这个 server 通过 **MCP over HTTP**（streamable-http transport）远程暴露，agent 只需一个 URL 即可连接，**不需要 clone / 安装 / 本地跑任何东西**。
 
 ```
-MCP 端点:  https://124.222.120.49/cryptorisk/mcp
+MCP 端点:  https://vetagent.dev/mcp
 Transport: streamable-http
 ```
 
@@ -21,7 +21,7 @@ Transport: streamable-http
   "mcpServers": {
     "crypto-agent-risk": {
       "type": "http",
-      "url": "https://124.222.120.49/cryptorisk/mcp"
+      "url": "https://vetagent.dev/mcp"
     }
   }
 }
